@@ -52,8 +52,7 @@
    (for [letter (take 3 letter-others)]
      ^{:key letter} [:button
                      {:on-click #(do (rf/dispatch [:word-input-add-letter letter])
-                                     (.blur (-> % .-target)))
-                      :tab-index -1}
+                                     (.blur (-> % .-target)))}
                      letter])
    [:div#letters-core
     [:button

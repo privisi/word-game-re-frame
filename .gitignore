@@ -33,3 +33,8 @@ build/
 /shadow-cljs.edn
 /.shadow-cljs/
 /site/
+resources/public/js
+.shadow-cljs/
+shadow-cljs.edn
+package.json
+package-lock.json
