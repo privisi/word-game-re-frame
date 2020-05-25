@@ -14,8 +14,8 @@ word_game.core.clear_cache_and_render_BANG_ = (function word_game$core$clear_cac
 return word_game.core.render();
 });
 word_game.core.run = (function word_game$core$run(){
-var G__66834_66835 = new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"initialize","initialize",609952913)], null);
-(re_frame.core.dispatch_sync.cljs$core$IFn$_invoke$arity$1 ? re_frame.core.dispatch_sync.cljs$core$IFn$_invoke$arity$1(G__66834_66835) : re_frame.core.dispatch_sync.call(null,G__66834_66835));
+var G__42539_42541 = new cljs.core.PersistentVector(null, 1, 5, cljs.core.PersistentVector.EMPTY_NODE, [new cljs.core.Keyword(null,"initialize","initialize",609952913)], null);
+(re_frame.core.dispatch_sync.cljs$core$IFn$_invoke$arity$1 ? re_frame.core.dispatch_sync.cljs$core$IFn$_invoke$arity$1(G__42539_42541) : re_frame.core.dispatch_sync.call(null,G__42539_42541));
 
 return word_game.core.render();
 });

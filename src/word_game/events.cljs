@@ -9,6 +9,18 @@
 
 (defonce timeouts (r/atom {}))
 
+(.addEventListener js/document "keydown" #(let [input (.-which %)]
+                                            (cond
+                                              (= 8 input)
+                                              (rf/dispatch [:word-input-delete-letter])
+
+                                              (= 13 input)
+                                              (do (rf/dispatch [:insert-word @(rf/subscribe [:word-input])])
+                                                  (rf/dispatch [:clear-word-input]))
+
+                                              (re-seq #"[a-zA-Z]" (char input))
+                                              (rf/dispatch [:word-input-add-letter (clojure.string/capitalize (char input))]))))
+
 ;; -- Domino 2 - Event Handlers -----------------------------------------------
 
 (rf/reg-event-db              ;; sets up initial application state
@@ -27,18 +39,6 @@
                      "arroyo" "barb" "barf" "boar" "boor" "bray" "farro"
                      "fora" "foray" "fray" "parry" "poor" "pray" "proof"
                      "prop" "pyro" "roar" "roof" "ropy"}}))
-
-(.addEventListener js/document "keydown" #(let [input (.-which %)]
-                                            (cond
-                                              (= 8 input)
-                                              (rf/dispatch [:word-input-delete-letter])
-
-                                              (= 13 input)
-                                              (do (rf/dispatch [:insert-word @(rf/subscribe [:word-input])])
-                                                  (rf/dispatch [:clear-word-input]))
-
-                                              (re-seq #"[a-zA-Z]" (char input))
-                                              (rf/dispatch [:word-input-add-letter (clojure.string/capitalize (char input))]))))
 
 (rf/reg-event-db
  :word-input-change
@@ -76,6 +76,7 @@
    (assoc db :modal-visibility "")))
 
 (defn calculate-points
+  "Returns how many points a word is worth"
   [word]
   (let [letter-count (count word)
         points (if (= 4 letter-count)
@@ -95,6 +96,7 @@
       :dispatch [:calculate-ranking new-points]})))
 
 (defn calculate-ranking-text
+  "Returns the corresponding ranking test for POINTS-RANKING"
   [points-ranking]
   (condp = points-ranking
     8 "Genius"
@@ -147,7 +149,9 @@
  (fn [db _]
    (assoc db :letter-others (shuffle (:letter-others db)))))
 
-(defn format-word [word]
+(defn format-word
+  "Returns a trimmed and capitalized WORD"
+  [word]
   (let [word (reduce #(str %1 (first %2)) "" word)]
     (-> (clojure.string/trim word)
         (clojure.string/capitalize))))
@@ -176,13 +180,14 @@
 
 ;; -- Domino 3 - Effect Handling  -------------------------------------------------------
 
+;; Sets javascript timeouts for animations
 (rf/reg-fx
  :timeout
  (fn [{:keys [id event time]}]
-   (when-some [existing (get @timeouts id)]
+   (when-some [existing (get @timeouts id)] ; If there is already a time out then clear it
      (js/clearTimeout existing)
      (swap! timeouts dissoc id))
-   (when (some? event)
+   (when (some? event) ; Add the timeout to the event and dispatch it
      (swap! timeouts assoc id
             (js/setTimeout
              (fn []

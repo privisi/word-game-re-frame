@@ -20,8 +20,12 @@
 
 (defn word-input
   [current-input]
-  (for [[letter color] current-input]
-    (span-color letter color)))
+  [:div#word-input
+   "Word: "
+   (for [[letter color] current-input]
+     (span-color letter color))
+   [:span {:style {:color "gold"}
+           :class "blinker"} "|"]])
 
 (defn alert-toast
   []
@@ -46,24 +50,22 @@
    {:on-click #(rf/dispatch [:shuffle-letters])}
    "🔀"])
 
+(defn create-letter-buttons
+  "Returns a row of buttons with each corresponding letter from LETTERS"
+  [letters]
+  (for [letter letters]
+    ^{:key letter} [:button
+                    {:on-click #(do (rf/dispatch [:word-input-add-letter letter])
+                                    (.blur (-> % .-target)))
+                     :tab-index -1}
+                    letter]))
+
 (defn available-letters
   [letter-others letter-core]
   [:div#letters
-   (for [letter (take 3 letter-others)]
-     ^{:key letter} [:button
-                     {:on-click #(do (rf/dispatch [:word-input-add-letter letter])
-                                     (.blur (-> % .-target)))}
-                     letter])
-   [:div#letters-core
-    [:button
-     {:on-click #(do (rf/dispatch [:word-input-add-letter letter-core])
-                     (.blur (-> % .-target)))}
-     letter-core]]
-   (for [letter (drop 3 letter-others)]
-     ^{:key letter} [:button
-                     {:on-click #(do (rf/dispatch [:word-input-add-letter letter])
-                                     (.blur (-> % .-target)))}
-                     letter])])
+   (create-letter-buttons (take 3 letter-others))
+   [:div#letters-core (create-letter-buttons letter-core)]
+   (create-letter-buttons (drop 3 letter-others))])
 
 (defn points
   []
@@ -107,22 +109,21 @@
     [:p "Amazing (47)"]
     [:p "Genius (65)"]]])
 
+(defn words-found [words]
+  [:p (str "Words Found: " (count words))])
+
 (defn ui
   []
   [:div
    [:h1 "Word Game"]
    [alert-toast]
-   [:div#word-input
-    "Word: "
-    (word-input @(rf/subscribe [:word-input]))
-    [:span {:style {:color "gold"}
-            :class "blinker"} "|"]]
+   [word-input @(rf/subscribe [:word-input])]
    [available-letters @(rf/subscribe [:letter-others])
-    @(rf/subscribe [:letter-core])]
+                      @(rf/subscribe [:letter-core])]
    [enter-button]
    [shuffle-button]
    [delete-button]
    [points]
-   [:p (str "Words Found: " (count @(rf/subscribe [:words-found])))]
+   [words-found @(rf/subscribe [:words-found])]
    [word-list]
    [modal]])
