@@ -9,17 +9,22 @@
 
 (defonce timeouts (r/atom {}))
 
-(.addEventListener js/document "keydown" #(let [input (.-which %)]
-                                            (cond
-                                              (= 8 input)
-                                              (rf/dispatch [:word-input-delete-letter])
+(defn keyboard-input []
+  (r/with-let [handler #(let [input (.-which %)]
+                          (cond
+                            (= 8 input)
+                            (rf/dispatch [:word-input-delete-letter])
 
-                                              (= 13 input)
-                                              (do (rf/dispatch [:insert-word @(rf/subscribe [:word-input])])
-                                                  (rf/dispatch [:clear-word-input]))
+                            (= 13 input)
+                            (do (rf/dispatch [:insert-word @(rf/subscribe [:word-input])])
+                                (rf/dispatch [:clear-word-input]))
 
-                                              (re-seq #"[a-zA-Z]" (char input))
-                                              (rf/dispatch [:word-input-add-letter (clojure.string/capitalize (char input))]))))
+                            (re-seq #"[a-zA-Z]" (char input))
+                            (rf/dispatch [:word-input-add-letter (clojure.string/capitalize (char input))])))
+               _   (.addEventListener js/document "keydown" handler)]
+    @(rf/subscribe [:word-input])
+    (finally
+      (.removeEventListener js/document "keydown" handler))))
 
 ;; -- Domino 2 - Event Handlers -----------------------------------------------
 
@@ -35,6 +40,9 @@
     :letter-others ["A" "B" "F" "O" "P" "Y"]
     :points 0
     :points-ranking 0
+    :points-ranking-pairs {0 [0 "Beginner"] 2 [1 "Good Start"] 5 [2 "Moving Up"] 7 [3 "Good"]
+                           14 [4 "Solid"] 23 [5 "Nice"] 37 [6 "Great"] 47 [7 "Amazing"]
+                           65 [8 "Genius"]}
     :allowed-words #{"babyproof" "afar" "affray" "afro" "arbor" "array"
                      "arroyo" "barb" "barf" "boar" "boor" "bray" "farro"
                      "fora" "foray" "fray" "parry" "poor" "pray" "proof"
@@ -95,43 +103,30 @@
      {:db (assoc db :points new-points)
       :dispatch [:calculate-ranking new-points]})))
 
-(defn calculate-ranking-text
-  "Returns the corresponding ranking test for POINTS-RANKING"
-  [points-ranking]
-  (condp = points-ranking
-    8 "Genius"
-    7 "Amazing"
-    6 "Great"
-    5 "Nice"
-    4 "Solid"
-    3 "Good"
-    2 "Moving Up"
-    1 "Good Start"
-    0 "Beginner"))
+(defn current-rank-info
+  "Returns the rank-info which contains:
+   [Minimum-Points [Rank, Rank-Text]]
+   corresponding to CURR-POINTS"
+  [curr-points ranking-map]
+  (last
+   (sort-by first
+            (filter
+             #(<= (key %) curr-points)
+             ranking-map))))
 
 (rf/reg-event-db
  :calculate-ranking
  (fn [db [_ points]]
-   (let [ranking (condp <= points
-                   65 8
-                   47 7
-                   37 6
-                   23 5
-                   14 4
-                   7  3
-                   5  2
-                   2  1
-                   0  0)]
+   (let [[_ [ranking _]] (current-rank-info points (:point-ranking-pairs db))]
      (assoc db :points-ranking ranking))))
+
 
 (rf/reg-event-fx
  :new-toast-alert
  (fn [{:keys [db]} [_ message]]
    {:db (assoc db :toast-message message)
     :dispatch [:show-toast]
-    :timeout {:id :toast-message
-              :event [:hide-toast]
-              :time 3000}}))
+    :dispatch-later [{:ms 3000 :dispatch [:hide-toast]}]}))
 
 (rf/reg-event-db
  :word-input-add-letter
@@ -156,21 +151,27 @@
     (-> (clojure.string/trim word)
         (clojure.string/capitalize))))
 
+(defn word-exists? 
+  [db word]
+  (some #{word} (:words-found db)))
+
+(defn allowed-word?
+  [db word]
+  (some (:allowed-words db) [(clojure.string/lower-case word)]))
+
+; Split into helper functions
 (rf/reg-event-fx
  :insert-word
  (fn [{:keys [db]} [_ new-word]]
    (let [new-word (format-word new-word)]
      (cond
-       (> (count (clojure.string/split new-word #"\s")) 1)
-       {:dispatch [:new-toast-alert "ONE WORD ONLY"]}
-
-       (some #{new-word} (:words-found db))
-       {:dispatch [:new-toast-alert "WORD ALREADY EXISTS"]}
-
        (empty? new-word)
        {:dispatch [:new-toast-alert "EMPTY"]}
 
-       (some (:allowed-words db) [(clojure.string/lower-case new-word)])
+       (word-exists? db new-word)
+       {:dispatch [:new-toast-alert "WORD ALREADY EXISTS"]}
+
+       (allowed-word? db new-word)
        {:db (assoc db :words-found (conj (:words-found db) new-word))
         :dispatch [:add-points new-word]}
 
@@ -180,16 +181,16 @@
 
 ;; -- Domino 3 - Effect Handling  -------------------------------------------------------
 
-;; Sets javascript timeouts for animations
-(rf/reg-fx
- :timeout
- (fn [{:keys [id event time]}]
-   (when-some [existing (get @timeouts id)] ; If there is already a time out then clear it
-     (js/clearTimeout existing)
-     (swap! timeouts dissoc id))
-   (when (some? event) ; Add the timeout to the event and dispatch it
-     (swap! timeouts assoc id
-            (js/setTimeout
-             (fn []
-               (rf/dispatch event))
-             time)))))
+;; ;; Sets javascript timeouts for animations
+;; (rf/reg-fx
+;;  :timeout
+;;  (fn [{:keys [id event time]}]
+;;    (when-some [existing (get @timeouts id)] ; If there is already a time out then clear it
+;;      (js/clearTimeout existing)
+;;      (swap! timeouts dissoc id))
+;;    (when (some? event) ; Add the timeout to the event and dispatch it
+;;      (swap! timeouts assoc id
+;;             (js/setTimeout
+;;              (fn []
+;;                (rf/dispatch event))
+;;              time)))))

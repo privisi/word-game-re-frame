@@ -1,17 +1,18 @@
 (ns word-game.views
   (:require [reagent.dom]
             [re-frame.core :as rf]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [word-game.events :as event]))
 
 
 ;; -- Domino 5 - View Functions ----------------------------------------------
 
 (defn word-list
-  []
+  [words]
   [:div#word-list
    {:style {:color "#f88"}}
    (->>
-    @(rf/subscribe [:words-found])
+    words
     (clojure.string/join " "))])
 
 (defn span-color
@@ -28,8 +29,8 @@
            :class "blinker"} "|"]])
 
 (defn alert-toast
-  []
-  [:div#toast {:class @(rf/subscribe [:toast-visibility])} @(rf/subscribe [:toast-message])])
+  [message]
+  [:div#toast {:class @(rf/subscribe [:toast-visibility])} message])
 
 (defn enter-button
   []
@@ -71,22 +72,15 @@
   []
   [:div#points
    [:p (str "Points: " @(rf/subscribe [:points]))]
-   [:p (str "Current Ranking: " (word-game.events/calculate-ranking-text @(rf/subscribe [:points-ranking])))]
+   [:p (str "Current Ranking: " @(rf/subscribe [:rank-text]))]
    [:input {:type "range" :min 0 :max 8 :steps 1
             :value @(rf/subscribe [:points-ranking])
             :class "slider"
             :on-click #(rf/dispatch [:show-modal])
             :read-only true}]
    [:div#sliderticks
-    [:p 0]
-    [:p 2]
-    [:p 5]
-    [:p 7]
-    [:p 14]
-    [:p 23]
-    [:p 37]
-    [:p 47]
-    [:p 65]]])
+    (for [required-point @(rf/subscribe [:points-ranking-requirements])]
+      [:p required-point])]])
 
 (defn modal
   []
@@ -99,15 +93,8 @@
     [:p "Ranks are based on a percentage of possible points
          in a puzzle." [:br] "The minimum scores to reach 
          each rank for today’s are:" [:br]]
-    [:p "Beginner (0)"]
-    [:p "Good Start (2)"]
-    [:p "Moving Up (5)"]
-    [:p "Good (7)"]
-    [:p "Solid (14)"]
-    [:p "Nice (23)"]
-    [:p "Great (37)"]
-    [:p "Amazing (47)"]
-    [:p "Genius (65)"]]])
+    (for [[points[_ rank] ] (sort @(rf/subscribe [:points-ranking-pairs]))]
+      [:p (str rank " (" points ")")])]])
 
 (defn words-found [words]
   [:p (str "Words Found: " (count words))])
@@ -116,8 +103,8 @@
   []
   [:div
    [:h1 "Word Game"]
-   [alert-toast]
-   [word-input @(rf/subscribe [:word-input])]
+   [alert-toast @(rf/subscribe [:toast-message])]
+   [word-input (event/keyboard-input)]
    [available-letters @(rf/subscribe [:letter-others])
                       @(rf/subscribe [:letter-core])]
    [enter-button]
@@ -125,5 +112,5 @@
    [delete-button]
    [points]
    [words-found @(rf/subscribe [:words-found])]
-   [word-list]
+   [word-list @(rf/subscribe [:words-found])]
    [modal]])

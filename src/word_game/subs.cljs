@@ -1,6 +1,7 @@
 (ns word-game.subs
   (:require [reagent.dom]
-            [re-frame.core :as rf]))
+            [re-frame.core :as rf]
+            [word-game.events :as event]))
 
 ;; -- Domino 4 - Query  -------------------------------------------------------
 
@@ -48,3 +49,25 @@
  :points-ranking
  (fn [db _]
    (:points-ranking db)))
+
+(rf/reg-sub
+ :points-ranking-pairs
+ (fn [db _]
+   (:points-ranking-pairs db)))
+
+;; Returns the required points for each rank
+(rf/reg-sub
+ :points-ranking-requirements
+ (fn [_ _]
+   (rf/subscribe [:points-ranking-pairs]))
+ (fn [point-ranking-pairs _]
+   (sort (mapv #(key %) point-ranking-pairs))))
+
+;; Returns the rank text of current rank
+(rf/reg-sub
+ :rank-text
+ (fn [_ _]
+   [(rf/subscribe [:points])
+    (rf/subscribe [:points-ranking-pairs])])
+ (fn [[points point-ranking-pairs] _]
+   (last (last (event/current-rank-info points point-ranking-pairs)))))
